@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Temperaturas BLE</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0d0d0d;
+        color: white;
+        text-align: center;
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Tarjetas */
+    .card {
+        background: #1a1a1a;
+        padding: 20px;
+        margin: 20px auto;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 0 15px cyan;
+    }
+
+    button {
+        background: cyan;
+        color: black;
+        border: none;
+        padding: 12px 20px;
+        margin: 6px;
+        font-size: 18px;
+        border-radius: 10px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #00b7ff;
+    }
+
+    .manual-btns button {
+        background: orange;
+    }
+
+    .manual-btns button:hover {
+        background: #ff9d00;
+    }
+
+    /* TERMÓMETROS */
+    .thermo-container {
+        width: 80%;
+        margin: 10px auto;
+        background: #333;
+        border-radius: 20px;
+        height: 25px;
+        overflow: hidden;
+        border: 2px solid cyan;
+    }
+
+    .thermo-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, blue, cyan, red);
+        transition: width 1s ease-in-out;
+    }
+
+    /* ESTILO ACTUADORES */
+    .actuador {
+        font-size: 22px;
+        margin: 10px 0;
+    }
+
+    .on {
+        color: #00ff88;
+        font-weight: bold;
+    }
+
+    .off {
+        color: #ff4444;
+        font-weight: bold;
+    }
+
+    /* Ventilador animado */
+    #ventilador-icon.on {
+        animation: giro 1s linear infinite;
+    }
+
+    @keyframes giro {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+
+    /* Calefactor */
+    #calefactor-icon.on {
+        color: red;
+        text-shadow: 0 0 20px red;
+    }
+
+</style>
+</head>
+<body>
+
+<!-- ========================================================= -->
+<!-- ENCABEZADO NEÓN -->
+<!-- ========================================================= -->
+<div style="
+    background: linear-gradient(90deg, #001f3f, #003c7a, #001f3f);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 4px solid #00eaff;
+    box-shadow: 0 0 25px #00eaff;
+">
+
+    <div style="display:flex;align-items:center;gap:15px;margin-left:20px;">
+        <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png"
+             style="width:55px;height:55px;filter: drop-shadow(0 0 8px cyan);">
+
+        <div style="color:white;text-shadow:0 0 8px cyan;">
+            <h1 style="font-size:32px;margin:0;font-weight:900;">TUVN</h1>
+            <p style="margin:0;font-size:15px;letter-spacing:2px;color:#b3ecff;">
+                AUTOMATIZACIÓN E INSTRUMENTACIÓN
+            </p>
+        </div>
+    </div>
+
+    <div style="
+        background: rgba(0, 255, 255, 0.12);
+        padding: 10px 20px;
+        border-radius: 15px;
+        border: 2px solid rgba(0, 255, 255, 0.6);
+        box-shadow: 0 0 12px #00eaff;
+        margin-right: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    ">
+        <div id="statusDot" style="
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ff004c;
+            box-shadow: 0 0 12px #ff004c;
+        "></div>
+
+        <span id="statusText" style="
+            color: #b3ecff;
+            font-weight: bold;
+            font-size: 16px;
+            text-shadow: 0 0 6px cyan;
+        ">Desconectado</span>
+    </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- BARRA DE INFORMACIÓN NEÓN -->
+<!-- ========================================================= -->
+<div style="
+    display:flex;
+    justify-content:space-between;
+    padding:12px 25px;
+    background:#00172e;
+    color:white;
+    border-bottom:2px solid cyan;
+    box-shadow:0 0 20px cyan inset;
+">
+
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:12px;
+        font-size:16px;
+        text-shadow:0 0 6px #00eaff;
+    ">
+        👨‍💻 Desarrolladores:
+        <span style="color:#00eaff; font-weight:bold;">Joel, Alexis y Sebastián</span>
+    </div>
+
+    <div id="timeDisplay" style="
+        font-weight:bold;
+        color:#00eaff;
+        font-size:20px;
+        font-family:monospace;
+        text-shadow:0 0 6px cyan;
+    ">--:--:--</div>
+</div>
+
+<h1 style="margin-top: 30px;">CONTROL DE TEMPERATURAS BLE</h1>
+
+<button onclick="connectBLE()">🔗 Conectar con ESP32</button>
+
+<div class="card">
+    <h2>LECTURAS</h2>
+
+    <p>Sensor 1: <span id="t1">0</span> °C</p>
+    <div class="thermo-container"><div id="bar1" class="thermo-bar"></div></div>
+
+    <p>Sensor 2: <span id="t2">0</span> °C</p>
+    <div class="thermo-container"><div id="bar2" class="thermo-bar"></div></div>
+
+    <p>Sensor 3: <span id="t3">0</span> °C</p>
+    <div class="thermo-container"><div id="bar3" class="thermo-bar"></div></div>
+
+    <p>Sensor 4: <span id="t4">0</span> °C</p>
+    <div class="thermo-container"><div id="bar4" class="thermo-bar"></div></div>
+
+    <h3>Temperatura General: <span id="general">0</span> °C</h3>
+    <div class="thermo-container"><div id="barGeneral" class="thermo-bar"></div></div>
+
+    <h3>Modo Actual: <span id="modo">AUTO</span></h3>
+</div>
+
+<div class="card">
+    <h2>MODO</h2>
+    <button onclick="sendCommand('AUTO')">Automático</button>
+    <button onclick="sendCommand('MANUAL')">Manual</button>
+</div>
+
+<div class="card manual-btns">
+    <h2>CONTROL MANUAL</h2>
+
+    <button onclick="sendCommand('A1_ON')">Ventilador ON</button>
+    <button onclick="sendCommand('A1_OFF')">Ventilador OFF</button>
+
+    <br><br>
+
+    <button onclick="sendCommand('A2_ON')">Calefactor ON</button>
+    <button onclick="sendCommand('A2_OFF')">Calefactor OFF</button>
+</div>
+
+<div class="card">
+    <h2>ESTADO DE ACTUADORES</h2>
+
+    <p class="actuador">
+        Ventilador:
+        <span id="ventilador-icon" class="off">🌀</span>
+        <span id="ventilador-estado" class="off">Apagado</span>
+    </p>
+
+    <p class="actuador">
+        Calefactor:
+        <span id="calefactor-icon" class="off">🔥</span>
+        <span id="calefactor-estado" class="off">Apagado</span>
+    </p>
+</div>
+
+<script>
+
+let device;
+let characteristic;
+
+const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+
+async function connectBLE() {
+    try {
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
+        });
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(SERVICE_UUID);
+
+        characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+
+        await characteristic.startNotifications();
+        characteristic.addEventListener("characteristicvaluechanged", handleData);
+
+        document.getElementById("statusText").innerText = "Conectado";
+        document.getElementById("statusText").style.color = "#00ff88";
+        document.getElementById("statusDot").style.background = "#00ff88";
+        document.getElementById("statusDot").style.boxShadow = "0 0 12px #00ff88";
+
+        alert("✅ Conectado correctamente");
+
+    } catch (error) {
+        alert("❌ Error: " + error);
+    }
+}
+
+function actualizarTermometro(idBarra, temp) {
+    let porcentaje = Math.max(0, Math.min(100, temp));
+    document.getElementById(idBarra).style.width = porcentaje + "%";
+}
+
+function actualizarActuadores(tGeneral) {
+    let ventilador = document.getElementById("ventilador-icon");
+    let calefactor = document.getElementById("calefactor-icon");
+
+    let ventTxt = document.getElementById("ventilador-estado");
+    let calTxt = document.getElementById("calefactor-estado");
+
+    if (tGeneral > 25) {
+        ventilador.classList.add("on");
+        ventilador.classList.remove("off");
+        ventTxt.innerText = "Encendido";
+        ventTxt.classList = "on";
+
+        calefactor.classList = "off";
+        calTxt.classList = "off";
+        calTxt.innerText = "Apagado";
+    }
+    else if (tGeneral < 20) {
+        calefactor.classList.add("on");
+        calefactor.classList.remove("off");
+        calTxt.innerText = "Encendido";
+        calTxt.classList = "on";
+
+        ventilador.classList = "off";
+        ventTxt.classList = "off";
+        ventTxt.innerText = "Apagado";
+    }
+    else {
+        ventilador.classList = "off";
+        ventTxt.innerText = "Apagado";
+        ventTxt.classList = "off";
+
+        calefactor.classList = "off";
+        calTxt.innerText = "Apagado";
+        calTxt.classList = "off";
+    }
+}
+
+function handleData(event) {
+    const value = new TextDecoder().decode(event.target.value);
+
+    try {
+        const json = JSON.parse(value);
+
+        document.getElementById("t1").innerText = json.s1;
+        document.getElementById("t2").innerText = json.s2;
+        document.getElementById("t3").innerText = json.s3;
+        document.getElementById("t4").innerText = json.s4;
+        document.getElementById("general").innerText = json.general;
+        document.getElementById("modo").innerText = json.modo;
+
+        actualizarTermometro("bar1", json.s1);
+        actualizarTermometro("bar2", json.s2);
+        actualizarTermometro("bar3", json.s3);
+        actualizarTermometro("bar4", json.s4);
+        actualizarTermometro("barGeneral", json.general);
+
+        actualizarActuadores(json.general);
+
+    } catch (e) {
+        console.log("Error JSON:", e);
+    }
+}
+
+async function sendCommand(cmd) {
+    if (!characteristic) {
+        alert("⚠ Primero conecta con el ESP32");
+        return;
+    }
+    await characteristic.writeValue(new TextEncoder().encode(cmd));
+}
+
+setInterval(() => {
+    const now = new Date();
+    document.getElementById("timeDisplay").innerText =
+        now.toLocaleTimeString("es-ES");
+}, 1000);
+
+</script>
+
+</body>
+</html>
